@@ -44,17 +44,27 @@ public class Matrix {
         return new Matrix(result);
     }
 
-    public Matrix multiplyBy(Matrix matrix) {
-        if (matrix.rows != cols) {
+    public static Matrix multiply(Matrix a, Matrix b) {
+        if (b.rows != a.cols) {
             throw new ArithmeticException("Matrix Multiplication is not possible.");
         }
 
-        double[][] result = new double[this.rows][matrix.cols];
-        for (int i = 0; i < rows; i++) {
-            for (int j = 0; j < matrix.cols; j++) {
-                for (int k = 0; k < matrix.rows; k++) {
-                    result[i][j] += data[i][k] * matrix.data[k][j];
+        double[][] result = new double[a.rows][b.cols];
+        for (int i = 0; i < a.rows; i++) {
+            for (int j = 0; j < b.cols; j++) {
+                for (int k = 0; k < b.rows; k++) {
+                    result[i][j] += a.data[i][k] * b.data[k][j];
                 }
+            }
+        }
+        return new Matrix(result);
+    }
+
+    public static Matrix applyFunction(Matrix a, ActivationFunction fn) {
+        double[][] result = new double[a.rows][a.cols];
+        for (int i = 0; i < a.rows; i++) {
+            for (int j = 0; j < a.cols; j++) {
+                result[i][j] = fn.run(a.data[i][j]);
             }
         }
         return new Matrix(result);
