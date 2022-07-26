@@ -2,7 +2,7 @@ package com.Tanadol.MLP;
 
 import java.util.Random;
 
-interface ActivationFunction {
+interface MathFunction {
     double run(double x);
 }
 
@@ -12,16 +12,29 @@ public class Network {
     private int nodeCount;
 
     private Matrix[] activations;
+    private Matrix[] weights;
+    private Matrix[] grads;
+    private Matrix[] nets;
+    private Matrix[] lastDeltaWeights;
+    private Matrix outputLayerErrMat;
 
-    private Matrix[] networkWeightsMat;
+    private double[] desiredOutput = {
+            1.0
+    };
+    private double sse;
 
     private final double MIN_WEIGTH = -1.0;
     private final double MAX_WEIGHT = 1.0;
 
     // f(x)=max(0, x)
-    private final ActivationFunction reluFn = (x) -> {
+    private final MathFunction reluFn = (x) -> {
         if (x < 0) return 0;
         else return x;
+    };
+
+    private final MathFunction diffReluFn = (x) -> {
+        if (x < 0) return 0;
+        else return 1;
     };
 
     private static final Random random = new Random();
@@ -34,26 +47,31 @@ public class Network {
             this.nodeCount += nodeInLayerCount[i];
         }
 
-        networkWeightsMat = new Matrix[layerCount - 1];
+        weights = new Matrix[layerCount - 1];
+        lastDeltaWeights = new Matrix[layerCount - 1];
         activations = new Matrix[layerCount];
+        grads = new Matrix[layerCount];
+        nets = new Matrix[layerCount];
     }
 
-    public void train(double[][] dataset) {
+    public void train(double[][] dataset, double momentumRate, double learningRate) {
         min_max_norm(dataset);
+        initWeight();
 
         for (double[] row : dataset) {
-            initWeight();
             feedForward(row);
+            backProp(momentumRate, learningRate);
         }
     }
 
     // TODO: He Weight Init if training is bad
     private void initWeight() {
-        for (int i = 0; i < networkWeightsMat.length; i++) {
-            networkWeightsMat[i] = new Matrix(nodeInLayerCount[i + 1], nodeInLayerCount[i]);
-            for (int j = 0; j < networkWeightsMat[i].getRows(); j++) {
-                for (int k = 0; k < networkWeightsMat[i].getCols(); k++) {
-                    networkWeightsMat[i].data[j][k] = random.nextDouble(MIN_WEIGTH, MAX_WEIGHT);
+        for (int k = 0; k < weights.length; k++) {
+            weights[k] = new Matrix(nodeInLayerCount[k + 1], nodeInLayerCount[k]);
+            lastDeltaWeights[k] = new Matrix(nodeInLayerCount[k + 1], nodeInLayerCount[k]);
+            for (int j = 0; j < weights[k].getRows(); j++) {
+                for (int i = 0; i < weights[k].getCols(); i++) {
+                    weights[k].data[j][i] = random.nextDouble(MIN_WEIGTH, MAX_WEIGHT);
                 }
             }
         }
@@ -92,8 +110,57 @@ public class Network {
         }
         activations[0] = new Matrix(inputVect);
         for (int i = 1; i < layerCount; i++) {
-            Matrix net = Matrix.multiply(networkWeightsMat[i - 1], (activations[i - 1]));
+            Matrix net = Matrix.multiply(weights[i - 1], (activations[i - 1]));
             activations[i] = Matrix.applyFunction(net, reluFn);
+            nets[i] = net;
+        }
+    }
+
+    private void backProp(double momentumRate, double learningRate) {
+        calcErrors();
+        calcGrads();
+
+        // update weights
+        for (int l = 0; l < layerCount - 1; l++) {
+            for (int j = 0; j < nodeInLayerCount[l + 1]; j++) {
+                for (int i = 0; i < nodeInLayerCount[l]; i++) {
+                    double deltaWeight = momentumRate * lastDeltaWeights[l].data[j][i] +
+                            learningRate * grads[l + 1].data[j][0] * activations[l].data[i][0];
+                    weights[l].data[j][i] = weights[l].data[j][i] + deltaWeight;
+                    lastDeltaWeights[l].data[j][i] = deltaWeight;
+                }
+            }
+        }
+    }
+
+    private void calcGrads() {
+        // output layer
+        grads[layerCount - 1] = new Matrix(nodeInLayerCount[layerCount - 1], 1);
+        for (int i = 0; i < nodeInLayerCount[layerCount - 1]; i++) {
+            grads[layerCount - 1].data[i][0] = outputLayerErrMat.data[i][0] * diffReluFn.run(nets[layerCount - 1]
+                    .data[i][0]);
+        }
+
+        // hidden layers
+        for (int l = layerCount - 2; l >= 1; l--) {
+            grads[l] = new Matrix(nodeInLayerCount[l], 1);
+            for (int j = 0; j < nodeInLayerCount[l]; j++) {
+                double sumGradsWeight = 0;
+                for (int k = 0; k < nodeInLayerCount[l + 1]; k++) {
+                    sumGradsWeight += grads[l + 1].data[k][0] * weights[l].data[k][j];
+                }
+                grads[l].data[j][0] = diffReluFn.run(nets[l].data[j][0]) * sumGradsWeight;
+            }
+        }
+    }
+
+    // calculate SSE and output layer error
+    private void calcErrors() {
+        outputLayerErrMat = new Matrix(desiredOutput.length, 1);
+        for (int i = 0; i < desiredOutput.length; i++) {
+            double error = desiredOutput[i] - activations[layerCount - 1].data[i][0];
+            outputLayerErrMat.data[i][0] = error;
+            sse = sse + (error * error);
         }
     }
 }

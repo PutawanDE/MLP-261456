@@ -60,7 +60,7 @@ public class Matrix {
         return new Matrix(result);
     }
 
-    public static Matrix applyFunction(Matrix a, ActivationFunction fn) {
+    public static Matrix applyFunction(Matrix a, MathFunction fn) {
         double[][] result = new double[a.rows][a.cols];
         for (int i = 0; i < a.rows; i++) {
             for (int j = 0; j < a.cols; j++) {
