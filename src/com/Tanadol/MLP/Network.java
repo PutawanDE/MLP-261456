@@ -1,5 +1,9 @@
 package com.Tanadol.MLP;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.Random;
 
 interface MathFunction {
@@ -9,19 +13,21 @@ interface MathFunction {
 public class Network {
     private int layerCount;
     private int[] nodeInLayerCount;
-    private int nodeCount;
+
+    private double max;
+    private double min;
 
     private Matrix[] activations;
     private Matrix[] weights;
     private Matrix[] grads;
     private Matrix[] nets;
     private Matrix[] lastDeltaWeights;
-    private Matrix outputLayerErrMat;
+    private double[] error;
 
-    private double[] desiredOutput = {
-            1.0
-    };
+    private double[] desiredOutput;
     private double sse;
+    private double mse = 1;
+    private StringBuilder stringBuilder = new StringBuilder();
 
     private final double MIN_WEIGTH = -1.0;
     private final double MAX_WEIGHT = 1.0;
@@ -32,8 +38,18 @@ public class Network {
         else return x;
     };
 
+    private final MathFunction leakyReluFn = (x) -> {
+        if (x <= 0) return 0.01 * x;
+        else return x;
+    };
+
     private final MathFunction diffReluFn = (x) -> {
-        if (x < 0) return 0;
+        if (x <= 0) return 0;
+        else return 1;
+    };
+
+    private final MathFunction diffLeakyReluFn = (x) -> {
+        if (x <= 0) return 0.01;
         else return 1;
     };
 
@@ -41,30 +57,68 @@ public class Network {
 
     public Network(int[] nodeInLayerCount) {
         this.layerCount = nodeInLayerCount.length;
-        this.nodeInLayerCount = new int[layerCount];
-        for (int i = 0; i < nodeInLayerCount.length; i++) {
-            this.nodeInLayerCount[i] = nodeInLayerCount[i];
-            this.nodeCount += nodeInLayerCount[i];
-        }
+        this.nodeInLayerCount = nodeInLayerCount;
 
         weights = new Matrix[layerCount - 1];
         lastDeltaWeights = new Matrix[layerCount - 1];
         activations = new Matrix[layerCount];
         grads = new Matrix[layerCount];
         nets = new Matrix[layerCount];
+
+        initWeight();
     }
 
-    public void train(double[][] dataset, double momentumRate, double learningRate) {
+    public void train(double[][] dataset, double momentumRate, double learningRate, int maxEpoch, String name) {
         min_max_norm(dataset);
-        initWeight();
+        desiredOutput = new double[1];
+        int n = dataset.length;
 
-        for (double[] row : dataset) {
-            feedForward(row);
-            backProp(momentumRate, learningRate);
+        int e = 0;
+        while (e < maxEpoch && mse > 0.0016) { // while
+            for (int i = 0; i < dataset.length; i++) {
+                feedForward(dataset[i]);
+                desiredOutput[0] = dataset[i][dataset[i].length - 1];
+                backProp(momentumRate, learningRate);
+            }
+            e++;
+            mse = sse / n;
+            sse = 0;
+            stringBuilder.append("--------------Epoch: ").append(e).append(" MSE: ").append(mse)
+                    .append("-----------------\n");
+        }
+        System.out.println(stringBuilder);
+        saveResult(name);
+        stringBuilder = new StringBuilder();
+    }
+
+    public double evaluateInput(double[][] testSet, String name) {
+        stringBuilder = new StringBuilder();
+        sse = 0;
+        mse = 0;
+        min_max_norm(testSet);
+
+        for (int i = 0; i < testSet.length; i++) {
+            feedForward(testSet[i]);
+            desiredOutput[0] = testSet[i][testSet[i].length - 1];
+            calcErrors();
+        }
+        mse = sse / testSet.length;
+        sse = 0;
+        stringBuilder.append("MSE: ").append(mse);
+        saveResult(name);
+        stringBuilder = new StringBuilder();
+        return mse; // testMse
+    }
+
+    private void saveResult(String name) {
+        File file = new File("D:/PUTAWAN/ComputerProjects/CI/" + name + ".txt");
+        try (BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(file))) {
+            bufferedWriter.append(stringBuilder);
+        } catch (IOException exception) {
+            exception.printStackTrace();
         }
     }
 
-    // TODO: He Weight Init if training is bad
     private void initWeight() {
         for (int k = 0; k < weights.length; k++) {
             weights[k] = new Matrix(nodeInLayerCount[k + 1], nodeInLayerCount[k]);
@@ -79,39 +133,35 @@ public class Network {
 
     // min-max normalization between 0, 1
     // xnormalized = (x - xminimum) / range of x
+    // normalize only input
     private void min_max_norm(double[][] dataset) {
-        double[] min = new double[dataset[0].length];
-        double[] max = new double[dataset[0].length];
+        max = Integer.MIN_VALUE;
+        min = Integer.MAX_VALUE;
 
-        for (int i = 0; i < dataset[0].length; i++) {
-            min[i] = Integer.MAX_VALUE;
-            max[i] = Integer.MIN_VALUE;
-
-            for (int j = 0; j < dataset.length; j++) {
-                double x = dataset[j][i];
-                if (x < min[i]) min[i] = x;
-                if (x > max[i]) max[i] = x;
+        for (int i = 0; i < dataset.length; i++) {
+            for (int j = 0; j < dataset[i].length - 1; j++) {
+                if (dataset[i][j] > max) max = dataset[i][j];
+                if (dataset[i][j] < min) min = dataset[i][j];
             }
         }
 
-        for (int j = 0; j < dataset.length; j++) {
-            for (int i = 0; i < dataset[j].length; i++) {
-                double range = max[i] - min[i];
-                if (range != 0) dataset[j][i] = (dataset[j][i] - min[i]) / range;
-                else dataset[j][i] = 0.0;
+        double range = max - min;
+        for (int i = 0; i < dataset.length; i++) {
+            for (int j = 0; j < dataset[i].length - 1; j++) {
+                dataset[i][j] = (dataset[i][j] - min) / range;
             }
         }
     }
 
     private void feedForward(double[] inputs) {
-        double[][] inputVect = new double[inputs.length][1];
-        for (int i = 0; i < inputs.length; i++) {
+        double[][] inputVect = new double[inputs.length - 1][1];
+        for (int i = 0; i < inputs.length - 1; i++) {
             inputVect[i][0] = inputs[i];
         }
         activations[0] = new Matrix(inputVect);
         for (int i = 1; i < layerCount; i++) {
             Matrix net = Matrix.multiply(weights[i - 1], (activations[i - 1]));
-            activations[i] = Matrix.applyFunction(net, reluFn);
+            activations[i] = Matrix.applyFunction(net, leakyReluFn);
             nets[i] = net;
         }
     }
@@ -124,8 +174,10 @@ public class Network {
         for (int l = 0; l < layerCount - 1; l++) {
             for (int j = 0; j < nodeInLayerCount[l + 1]; j++) {
                 for (int i = 0; i < nodeInLayerCount[l]; i++) {
-                    double deltaWeight = momentumRate * lastDeltaWeights[l].data[j][i] +
-                            learningRate * grads[l + 1].data[j][0] * activations[l].data[i][0];
+                    double momentumTerm = momentumRate * lastDeltaWeights[l].data[j][i];
+                    double learningRateTerm = learningRate * grads[l + 1].data[j][0] * activations[l].data[i][0];
+                    double deltaWeight = momentumTerm + learningRateTerm;
+
                     weights[l].data[j][i] = weights[l].data[j][i] + deltaWeight;
                     lastDeltaWeights[l].data[j][i] = deltaWeight;
                 }
@@ -137,7 +189,7 @@ public class Network {
         // output layer
         grads[layerCount - 1] = new Matrix(nodeInLayerCount[layerCount - 1], 1);
         for (int i = 0; i < nodeInLayerCount[layerCount - 1]; i++) {
-            grads[layerCount - 1].data[i][0] = outputLayerErrMat.data[i][0] * diffReluFn.run(nets[layerCount - 1]
+            grads[layerCount - 1].data[i][0] = error[i] * diffLeakyReluFn.run(nets[layerCount - 1]
                     .data[i][0]);
         }
 
@@ -149,18 +201,27 @@ public class Network {
                 for (int k = 0; k < nodeInLayerCount[l + 1]; k++) {
                     sumGradsWeight += grads[l + 1].data[k][0] * weights[l].data[k][j];
                 }
-                grads[l].data[j][0] = diffReluFn.run(nets[l].data[j][0]) * sumGradsWeight;
+                grads[l].data[j][0] = diffLeakyReluFn.run(nets[l].data[j][0]) * sumGradsWeight;
             }
         }
     }
 
     // calculate SSE and output layer error
     private void calcErrors() {
-        outputLayerErrMat = new Matrix(desiredOutput.length, 1);
+        error = new double[desiredOutput.length];
         for (int i = 0; i < desiredOutput.length; i++) {
-            double error = desiredOutput[i] - activations[layerCount - 1].data[i][0];
-            outputLayerErrMat.data[i][0] = error;
+            double normDesireOutput = (desiredOutput[i] - min) / (max - min);
+            double rawOutput = activations[layerCount - 1].data[i][0];
+            double denormOutput = activations[layerCount - 1].data[i][0] * (max - min) + min;
+
+            double error = normDesireOutput - activations[layerCount - 1].data[i][0];
+            double denormError = desiredOutput[i] - denormOutput;
             sse = sse + (error * error);
+            this.error[i] = error;
+
+            stringBuilder.append("DesireOutput: ").append(desiredOutput[i]).append(" Raw Output: ").append(rawOutput)
+                    .append(" Output: ").append(denormOutput).append(" Error: ").append(error)
+                    .append(" Water Lv. Error: ").append(denormError).append("\n");
         }
     }
 }
