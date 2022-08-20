@@ -27,7 +27,7 @@ public class Network {
     private Matrix[] weights;
     private Matrix[] grads;
     private Matrix[] nets;
-    private Matrix[] weightsAtPrevItr;
+    private Matrix[] lastDeltaWeights;
     private double[] error;
 
     private double[] desiredOutput;
@@ -68,7 +68,7 @@ public class Network {
         this.nodeInLayerCount = nodeInLayerCount;
 
         weights = new Matrix[layerCount - 1];
-        weightsAtPrevItr = new Matrix[layerCount - 1];
+        lastDeltaWeights = new Matrix[layerCount - 1];
         activations = new Matrix[layerCount];
         grads = new Matrix[layerCount];
         nets = new Matrix[layerCount];
@@ -151,7 +151,7 @@ public class Network {
     private void initWeight() {
         for (int k = 0; k < weights.length; k++) {
             weights[k] = new Matrix(nodeInLayerCount[k + 1], nodeInLayerCount[k]);
-            weightsAtPrevItr[k] = new Matrix(nodeInLayerCount[k + 1], nodeInLayerCount[k]);
+            lastDeltaWeights[k] = new Matrix(nodeInLayerCount[k + 1], nodeInLayerCount[k]);
             for (int j = 0; j < weights[k].getRows(); j++) {
                 for (int i = 0; i < weights[k].getCols(); i++) {
                     weights[k].data[j][i] = random.nextDouble(MIN_WEIGTH, MAX_WEIGHT);
@@ -203,13 +203,12 @@ public class Network {
         for (int l = 0; l < layerCount - 1; l++) {
             for (int j = 0; j < nodeInLayerCount[l + 1]; j++) {
                 for (int i = 0; i < nodeInLayerCount[l]; i++) {
-                    double deltaWeight = weights[l].data[j][i] - weightsAtPrevItr[l].data[j][i];
-                    double momentumTerm = momentumRate * deltaWeight;
+                    double momentumTerm = momentumRate * lastDeltaWeights[l].data[j][i];
                     double learningRateTerm = learningRate * grads[l + 1].data[j][0] * activations[l].data[i][0];
+                    double deltaWeight = momentumTerm + learningRateTerm;
 
-                    weightsAtPrevItr[l].data[j][i] = weights[l].data[j][i];
-                    double newWeight = weights[l].data[j][i] + momentumTerm + learningRateTerm;
-                    weights[l].data[j][i] = newWeight;
+                    weights[l].data[j][i] = weights[l].data[j][i] + deltaWeight;
+                    lastDeltaWeights[l].data[j][i] = deltaWeight;
                 }
             }
         }
