@@ -1,7 +1,6 @@
 package com.Tanadol.MLP;
 
-import java.io.File;
-import java.io.FileNotFoundException;
+import java.io.*;
 import java.util.Scanner;
 
 public class Main {
@@ -20,14 +19,30 @@ public class Main {
         String delimiters = "\\s*[\t\n]\\s*";
 
         try {
+            StringBuilder evalResultStr = new StringBuilder();
+            evalResultStr.append("Training RMSE,Training Water RMSE,TestRMSE,Test Water RMSE\n");
             for (int i = 1; i <= 10; i++) {
                 double[][] trainingData = readTrainingFloodDataset(foldSize, dataCols, i, k, path, delimiters);
-                network.train(trainingData, 0.004, 0.001, 400, "ResultItr" + i);
+                network.train(trainingData, 0.9, 0.9, 400, "Flood_RMSE/FloodTrainingResult_D/ResultItr" + i);
+
+                network.evaluateInput(trainingData, evalResultStr);
                 network.evaluateInput(readTestFloodData(foldSize, dataCols, i, path, delimiters),
-                        "ResultTestSet" + i);
+                        evalResultStr);
+                evalResultStr.append('\n');
             }
+            System.out.println(evalResultStr);
+//            saveResult(evalResultStr, "Flood_RMSE/FloodTrainingResult_D/Result_D");
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    public static void saveResult(StringBuilder stringBuilder, String name) {
+        File file = new File("D:/PUTAWAN/ComputerProjects/CI/" + name + ".csv");
+        try (BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(file))) {
+            bufferedWriter.append(stringBuilder);
+        } catch (IOException exception) {
+            exception.printStackTrace();
         }
     }
 

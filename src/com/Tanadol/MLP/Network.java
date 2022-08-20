@@ -9,7 +9,13 @@ import java.util.Random;
 interface MathFunction {
     double run(double x);
 }
-
+/* TODO: -use same arrays index as the notation in http://myweb.cmu.ac.th/sansanee.a/IntroCI/Review_1st_Midterm.pdf slide
+    - compute error in feed forward instead of in backprop
+    - use feed forward to evaluate input
+    - more generalized code to be easily used by another data set
+    - refactor error calculation
+    - Think about epsilon
+*/
 public class Network {
     private int layerCount;
     private int[] nodeInLayerCount;
@@ -21,12 +27,14 @@ public class Network {
     private Matrix[] weights;
     private Matrix[] grads;
     private Matrix[] nets;
-    private Matrix[] lastDeltaWeights;
+    private Matrix[] weightsAtPrevItr;
     private double[] error;
 
     private double[] desiredOutput;
     private double sse;
+    private double sse_water;
     private double mse = 1;
+    private double mse_water;
     private StringBuilder stringBuilder = new StringBuilder();
 
     private final double MIN_WEIGTH = -1.0;
@@ -60,7 +68,7 @@ public class Network {
         this.nodeInLayerCount = nodeInLayerCount;
 
         weights = new Matrix[layerCount - 1];
-        lastDeltaWeights = new Matrix[layerCount - 1];
+        weightsAtPrevItr = new Matrix[layerCount - 1];
         activations = new Matrix[layerCount];
         grads = new Matrix[layerCount];
         nets = new Matrix[layerCount];
@@ -69,49 +77,70 @@ public class Network {
     }
 
     public void train(double[][] dataset, double momentumRate, double learningRate, int maxEpoch, String name) {
-        min_max_norm(dataset);
+        double[][] dataClone = new double[dataset.length][dataset[0].length];
+        for (int i = 0; i < dataClone.length; i++) {
+            double[] orgRow = dataset[i];
+            dataClone[i] = new double[orgRow.length];
+            System.arraycopy(orgRow, 0, dataClone[i], 0, orgRow.length);
+        }
+
+        min_max_norm(dataClone);
         desiredOutput = new double[1];
-        int n = dataset.length;
+        int n = dataClone.length;
 
         int e = 0;
-        while (e < maxEpoch && mse > 0.0016) { // while
-            for (int i = 0; i < dataset.length; i++) {
-                feedForward(dataset[i]);
-                desiredOutput[0] = dataset[i][dataset[i].length - 1];
+        stringBuilder.append("Epoch,").append("MSE\n");
+        while (e < maxEpoch) { // while
+            for (int i = 0; i < dataClone.length; i++) {
+                feedForward(dataClone[i]);
+                desiredOutput[0] = dataClone[i][dataClone[i].length - 1];
                 backProp(momentumRate, learningRate);
             }
             e++;
             mse = sse / n;
+            mse_water = mse_water / n;
+            sse_water = 0;
             sse = 0;
             stringBuilder.append("--------------Epoch: ").append(e).append(" MSE: ").append(mse)
                     .append("-----------------\n");
+            stringBuilder.append(e).append(',').append(mse).append('\n');
         }
         System.out.println(stringBuilder);
-        saveResult(name);
+//        saveResult(name);
         stringBuilder = new StringBuilder();
     }
 
-    public double evaluateInput(double[][] testSet, String name) {
-        stringBuilder = new StringBuilder();
+    public double evaluateInput(double[][] dataset, StringBuilder evalStringSb) {
+        double[][] dataClone = new double[dataset.length][dataset[0].length];
+        for (int i = 0; i < dataClone.length; i++) {
+            double[] orgRow = dataset[i];
+            dataClone[i] = new double[orgRow.length];
+            System.arraycopy(orgRow, 0, dataClone[i], 0, orgRow.length);
+        }
+
         sse = 0;
         mse = 0;
-        min_max_norm(testSet);
+        min_max_norm(dataClone);
 
-        for (int i = 0; i < testSet.length; i++) {
-            feedForward(testSet[i]);
-            desiredOutput[0] = testSet[i][testSet[i].length - 1];
+        for (int i = 0; i < dataClone.length; i++) {
+            feedForward(dataClone[i]);
+            desiredOutput[0] = dataClone[i][dataClone[i].length - 1];
             calcErrors();
         }
-        mse = sse / testSet.length;
+        mse = sse / dataClone.length;
+        double rmse = Math.sqrt(mse);
+        mse_water = sse_water / dataClone.length;
+        double rmse_water = Math.sqrt(mse_water);
+        sse_water = 0;
         sse = 0;
-        stringBuilder.append("MSE: ").append(mse);
-        saveResult(name);
-        stringBuilder = new StringBuilder();
-        return mse; // testMse
+        evalStringSb.append(rmse).append(',').append(rmse_water).append(',');
+//        saveResult(name);
+//        System.out.println(evalStringSb);
+        return rmse;
     }
 
-    private void saveResult(String name) {
-        File file = new File("D:/PUTAWAN/ComputerProjects/CI/" + name + ".txt");
+    public void saveResult(String name) {
+        File file = new File("D:/PUTAWAN/ComputerProjects/CI/" + name + ".csv");
         try (BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(file))) {
             bufferedWriter.append(stringBuilder);
         } catch (IOException exception) {
@@ -122,7 +151,7 @@ public class Network {
     private void initWeight() {
         for (int k = 0; k < weights.length; k++) {
             weights[k] = new Matrix(nodeInLayerCount[k + 1], nodeInLayerCount[k]);
-            lastDeltaWeights[k] = new Matrix(nodeInLayerCount[k + 1], nodeInLayerCount[k]);
+            weightsAtPrevItr[k] = new Matrix(nodeInLayerCount[k + 1], nodeInLayerCount[k]);
             for (int j = 0; j < weights[k].getRows(); j++) {
                 for (int i = 0; i < weights[k].getCols(); i++) {
                     weights[k].data[j][i] = random.nextDouble(MIN_WEIGTH, MAX_WEIGHT);
@@ -174,12 +203,13 @@ public class Network {
         for (int l = 0; l < layerCount - 1; l++) {
             for (int j = 0; j < nodeInLayerCount[l + 1]; j++) {
                 for (int i = 0; i < nodeInLayerCount[l]; i++) {
-                    double momentumTerm = momentumRate * lastDeltaWeights[l].data[j][i];
+                    double deltaWeight = weights[l].data[j][i] - weightsAtPrevItr[l].data[j][i];
+                    double momentumTerm = momentumRate * deltaWeight;
                     double learningRateTerm = learningRate * grads[l + 1].data[j][0] * activations[l].data[i][0];
-                    double deltaWeight = momentumTerm + learningRateTerm;
 
-                    weights[l].data[j][i] = weights[l].data[j][i] + deltaWeight;
-                    lastDeltaWeights[l].data[j][i] = deltaWeight;
+                    weightsAtPrevItr[l].data[j][i] = weights[l].data[j][i];
+                    double newWeight = weights[l].data[j][i] + momentumTerm + learningRateTerm;
+                    weights[l].data[j][i] = newWeight;
                 }
             }
         }
@@ -216,12 +246,13 @@ public class Network {
 
             double error = normDesireOutput - activations[layerCount - 1].data[i][0];
             double denormError = desiredOutput[i] - denormOutput;
+            sse_water = sse_water + (denormError * denormError);
             sse = sse + (error * error);
             this.error[i] = error;
 
-            stringBuilder.append("DesireOutput: ").append(desiredOutput[i]).append(" Raw Output: ").append(rawOutput)
-                    .append(" Output: ").append(denormOutput).append(" Error: ").append(error)
-                    .append(" Water Lv. Error: ").append(denormError).append("\n");
+//            stringBuilder.append("DesireOutput: ").append(desiredOutput[i]).append(" Raw Output: ").append(rawOutput)
+//                    .append(" Output: ").append(denormOutput).append(" Error: ").append(error)
+//                    .append(" Water Lv. Error: ").append(denormError).append("\n");
         }
     }
 }
