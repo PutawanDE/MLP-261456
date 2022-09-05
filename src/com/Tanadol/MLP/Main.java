@@ -4,13 +4,24 @@ import java.io.*;
 import java.util.Scanner;
 
 public class Main {
+    private static final MathFunction leakyReluFn = (x) -> {
+        if (x <= 0) return 0.01 * x;
+        else return x;
+    };
+
+    private static final MathFunction diffLeakyReluFn = (x) -> {
+        if (x <= 0) return 0.01;
+        else return 1;
+    };
+
     public static void main(String[] args) {
         trainFloodData();
     }
 
     public static void trainFloodData() {
         int[] nodeInLayerCount = new int[]{8, 5, 1};
-        Network network = new Network(nodeInLayerCount);
+        FloodDataNetwork network = new FloodDataNetwork(nodeInLayerCount, leakyReluFn, diffLeakyReluFn,
+                -1.0, 1.0);
 
         int k = 10;
         int foldSize = 31;
@@ -23,7 +34,8 @@ public class Main {
             evalResultStr.append("Training RMSE,Training Water RMSE,TestRMSE,Test Water RMSE\n");
             for (int i = 1; i <= 10; i++) {
                 double[][] trainingData = readTrainingFloodDataset(foldSize, dataCols, i, k, path, delimiters);
-                network.train(trainingData, 0.9, 0.9, 400, "Flood_RMSE/FloodTrainingResult_D/ResultItr" + i);
+                network.trainFloodData(trainingData, 0.9, 0.1, 400,
+                        0.0002, "Flood_RMSE/FloodTrainingResult_D/ResultItr" + i);
 
                 network.evaluateInput(trainingData, evalResultStr);
                 network.evaluateInput(readTestFloodData(foldSize, dataCols, i, path, delimiters),
