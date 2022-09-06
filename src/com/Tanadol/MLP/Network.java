@@ -7,6 +7,9 @@ interface MathFunction {
 }
 
 public class Network {
+    protected final int inputLength;
+    protected final int desiredOutputLength;
+
     protected int layerCount;
     private int[] nodeInLayerCount;
 
@@ -41,6 +44,9 @@ public class Network {
         nets = new Matrix[layerCount];
 
         initWeight();
+
+        inputLength = nodeInLayerCount[0];
+        desiredOutputLength = nodeInLayerCount[nodeInLayerCount.length - 1];
     }
 
     private void initWeight() {
