@@ -24,19 +24,18 @@ public class CrossPatDataNetwork extends Network {
 //        saveResult(resultStrBuilder, name);
     }
 
-    public void evaluateInput(double[][] dataset, StringBuilder evalStringSb) {
+    public int[] evaluateInput(double[][] dataset, StringBuilder evalStringSb) {
         double[][] inputData = copy2Darray(dataset, 0, inputLength);
         double[][] desiredOutputs = copy2Darray(dataset, inputLength, desiredOutputLength);
 
-        double tp = 0, tn = 0, fp = 0, fn = 0;
+        int tp = 0, tn = 0, fp = 0, fn = 0;
         for (int i = 0; i < dataset.length; i++) {
             feedForward(inputData[i], desiredOutputs[i]);
 
-            double predicted1 = activations[layerCount - 1].data[0][0];
-//            double predicted2 = activations[layerCount - 1].data[1][0];
+            double predicted = activations[layerCount - 1].data[0][0];
 
             // 1 for positive, 0 for negative, positive->first output is 1
-            int predictedPositiveOrNegative = predicted1 >= 0.5 ? 1 : 0;
+            int predictedPositiveOrNegative = predicted >= 0.5 ? 1 : 0;
             int actualPositiveOrNegative = (int) desiredOutputs[i][0];
 
             if (actualPositiveOrNegative == 1 && predictedPositiveOrNegative == 1) {
@@ -51,7 +50,9 @@ public class CrossPatDataNetwork extends Network {
         }
 
         evalStringSb.append(",actually positive (1),").append("actually negative (0)\n");
-        evalStringSb.append("predicted positive (1)").append(tp).append(',').append(fp).append('\n');
-        evalStringSb.append("predicted negative (0)").append(fn).append(',').append(tn).append('\n');
+        evalStringSb.append("predicted positive (1),").append(tp).append(',').append(fp).append('\n');
+        evalStringSb.append("predicted negative (0),").append(fn).append(',').append(tn).append('\n');
+
+        return new int[]{tp, fp, fn, tn};
     }
 }

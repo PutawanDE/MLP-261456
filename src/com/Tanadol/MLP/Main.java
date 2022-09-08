@@ -65,7 +65,7 @@ public class Main {
     }
 
     public static void tenPercentCrossValidateCrossPat() {
-        int[] nodeInLayerCount = new int[]{2, 6, 6, 1};
+        int[] nodeInLayerCount = new int[]{2, 2, 2, 1};
         MathFunction[] hiddenLayerActivation = new MathFunction[]{tanhFn, diffTanhFn};
         CrossPatDataNetwork network = new CrossPatDataNetwork(nodeInLayerCount, hiddenLayerActivation, -1.0, 1.0);
 
@@ -77,20 +77,34 @@ public class Main {
 
         try {
             StringBuilder evalResultStr = new StringBuilder();
+            int test_tp = 0, test_tn = 0, test_fp = 0, test_fn = 0;
             for (int i = 1; i <= k; i++) {
                 double[][] trainingData = readTrainingDataset(foldSize, dataCols, i, k, path, delimiters);
                 network.trainCrossPatData(trainingData, 0.1, 0.002, 5000,
                         0.01, "CrossPatResult/CrossPatTrainingResult_A/ResultItr" + i);
 //
-                evalResultStr.append("Training Data Confusion Matrix\n");
+                evalResultStr.append("Training Data Confusion Matrix: ").append(i).append('\n');
                 network.evaluateInput(trainingData, evalResultStr);
-                evalResultStr.append("Test Data Confusion Matrix\n");
-                network.evaluateInput(readTestData(foldSize, dataCols, i, path, delimiters),
+                evalResultStr.append("Test Data Confusion Matrix: ").append(i).append('\n');
+                int[] testConfusionMat = network.evaluateInput(readTestData(foldSize, dataCols, i, path, delimiters),
                         evalResultStr);
-//                evalResultStr.append('\n');
+                test_tp += testConfusionMat[0];
+                test_fp += testConfusionMat[1];
+                test_fn += testConfusionMat[2];
+                test_tn += testConfusionMat[3];
+
+                evalResultStr.append('\n');
             }
             System.out.println(evalResultStr);
-//            saveResult(evalResultStr, "CrossPatResult/CrossPatResult_A/Result_A");
+
+            evalResultStr = new StringBuilder();
+            evalResultStr.append("All Tests Confusion Matrix\n");
+//            evalResultStr.append(",actually positive (1),").append("actually negative (0)\n");
+//            evalResultStr.append("predicted positive (1)").append(accConfusionMat[0]).append(',').append(accConfusionMat[1]).append('\n');
+//            evalResultStr.append("predicted negative (0)").append(accConfusionMat[2]).append(',').append(accConfusionMat[3]).append('\n');
+            evalResultStr.append(test_tn).append(',').append(test_fp).append("],[").append(test_fn).append(',').append(test_tp);
+            System.out.println(evalResultStr);
+//            saveResult(evalResultStr, "CrossPatResult/Result_A");
         } catch (Exception e) {
             e.printStackTrace();
         }
