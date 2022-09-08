@@ -5,18 +5,19 @@ import static com.Tanadol.MLP.ReadWriteTrainingData.readTrainingDataset;
 import static com.Tanadol.MLP.ReadWriteTrainingData.saveResult;
 
 public class Main {
+    private static final MathFunction linearFn = (x) -> x;
+    private static final MathFunction diffLinearFn = (x) -> 1.0;
+
     private static final MathFunction leakyReluFn = (x) -> {
         if (x <= 0) return 0.01 * x;
         else return x;
     };
-
     private static final MathFunction diffLeakyReluFn = (x) -> {
         if (x <= 0) return 0.01;
         else return 1;
     };
 
     private static final MathFunction sigmoidFn = (x) -> 1.0 / (1.0 + Math.exp(x));
-
     private static final MathFunction diffSigmoidFn = (x) -> {
         double s = sigmoidFn.run(x);
         return s * (1.0 - s);
@@ -29,8 +30,9 @@ public class Main {
     }
 
     public static void tenPercentCrossValidateFloodData() {
-        int[] nodeInLayerCount = new int[]{8, 5, 1};
-        FloodDataNetwork network = new FloodDataNetwork(nodeInLayerCount, leakyReluFn, diffLeakyReluFn,
+        int[] nodeInLayerCount = new int[]{8, 2, 1};
+        MathFunction[] activationFn = new MathFunction[]{leakyReluFn, diffLeakyReluFn};
+        FloodDataNetwork network = new FloodDataNetwork(nodeInLayerCount, activationFn, activationFn,
                 -1.0, 1.0);
 
         int k = 10;
@@ -45,7 +47,7 @@ public class Main {
             for (int i = 1; i <= k; i++) {
                 double[][] trainingData = readTrainingDataset(foldSize, dataCols, i, k, path, delimiters);
                 network.trainFloodData(trainingData, 0.9, 0.1, 400,
-                        0.0002, "Flood_RMSE/FloodTrainingResult_D/ResultItr" + i);
+                        0.0002, "Flood_RMSE/FloodTrainingResult_E/ResultItr" + i);
 
                 network.evaluateInput(trainingData, evalResultStr);
                 network.evaluateInput(readTestData(foldSize, dataCols, i, path, delimiters),
@@ -53,16 +55,18 @@ public class Main {
                 evalResultStr.append('\n');
             }
             System.out.println(evalResultStr);
-            saveResult(evalResultStr, "Flood_RMSE/FloodTrainingResult_D/Result_D");
+//            saveResult(evalResultStr, "Flood_RMSE/FloodTrainingResult_D/Result_D");
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
     public static void tenPercentCrossValidateCrossPat() {
-        int[] nodeInLayerCount = new int[]{2, 2, 2};
-        CrossPatDataNetwork network = new CrossPatDataNetwork(nodeInLayerCount, sigmoidFn, diffSigmoidFn,
-                0.0, 1.0);
+        int[] nodeInLayerCount = new int[]{2, 6, 2};
+        MathFunction[] hiddenLayerActivation = new MathFunction[]{sigmoidFn, diffSigmoidFn};
+        MathFunction[] outputLayerActivation = new MathFunction[]{sigmoidFn, diffSigmoidFn};
+        CrossPatDataNetwork network = new CrossPatDataNetwork(nodeInLayerCount, hiddenLayerActivation,
+                outputLayerActivation, 0.0, 1.0);
 
         int k = 10;
         int foldSize = 20;
@@ -74,15 +78,15 @@ public class Main {
             StringBuilder evalResultStr = new StringBuilder();
             for (int i = 1; i <= k; i++) {
                 double[][] trainingData = readTrainingDataset(foldSize, dataCols, i, k, path, delimiters);
-                network.trainCrossPatData(trainingData, 0, 0.1, 4000,
+                network.trainCrossPatData(trainingData, 0.1, 0.01, 1500,
                         0.0002, "CrossPatResult/CrossPatTrainingResult_A/ResultItr" + i);
 
-//                evalResultStr.append("Training Data Confusion Matrix\n");
-//                network.evaluateInput(trainingData, evalResultStr);
-//                evalResultStr.append("Test Data Confusion Matrix\n");
-//                network.evaluateInput(readTestData(foldSize, dataCols, i, path, delimiters),
-//                        evalResultStr);
-//                evalResultStr.append('\n');
+                evalResultStr.append("Training Data Confusion Matrix\n");
+                network.evaluateInput(trainingData, evalResultStr);
+                evalResultStr.append("Test Data Confusion Matrix\n");
+                network.evaluateInput(readTestData(foldSize, dataCols, i, path, delimiters),
+                        evalResultStr);
+                evalResultStr.append('\n');
             }
             System.out.println(evalResultStr);
 //            saveResult(evalResultStr, "CrossPatResult/CrossPatResult_A/Result_A");

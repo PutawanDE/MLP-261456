@@ -23,17 +23,23 @@ public class Network {
     private final double minWeight;
     private final double maxWeight;
 
-    private final MathFunction activationFn;
-    private final MathFunction diffActivationFn;
+    private final MathFunction hiddenLayerActivationFn;
+    private final MathFunction diffHiddenLayerActivationFn;
+    private final MathFunction outputLayerActivationFn;
+    private final MathFunction diffOutputLayerActivationFn;
 
     private static final Random random = new Random();
 
-    public Network(int[] nodeInLayerCount, MathFunction activationFn, MathFunction diffActivationFn,
+    public Network(int[] nodeInLayerCount, MathFunction[] hiddenLayerActivation, MathFunction[] outputLayerActivation,
                    double minWeight, double maxWeight) {
         this.layerCount = nodeInLayerCount.length;
         this.nodeInLayerCount = nodeInLayerCount;
-        this.activationFn = activationFn;
-        this.diffActivationFn = diffActivationFn;
+
+        this.hiddenLayerActivationFn = hiddenLayerActivation[0];
+        this.diffHiddenLayerActivationFn = hiddenLayerActivation[1];
+        this.outputLayerActivationFn = outputLayerActivation[0];
+        this.diffOutputLayerActivationFn = outputLayerActivation[1];
+
         this.minWeight = minWeight;
         this.maxWeight = maxWeight;
 
@@ -66,12 +72,11 @@ public class Network {
                              StringBuilder mseResult) {
         int e = 0;
         double sse = 0;
-        double mse;
-        double rmse = Integer.MAX_VALUE;
+        double mse = Integer.MAX_VALUE;
 
         int n = inputs.length;
 
-        while (e < maxEpoch && rmse > epsilon) {
+        while (e < maxEpoch && mse > epsilon) {
             StringBuilder sb = new StringBuilder();
 
             for (int i = 0; i < n; i++) {
@@ -82,7 +87,6 @@ public class Network {
             e++;
             mse = sse / n;
             sse = 0;
-            rmse = Math.sqrt(mse);
 
             sb.append("-------------Epoch: ").append(e).append(" MSE: ").append(mse).append("-------------");
             System.out.println(sb);
@@ -98,11 +102,12 @@ public class Network {
         }
         activations[0] = new Matrix(inputMat);
         for (int i = 1; i < layerCount; i++) {
-            Matrix net = Matrix.multiply(weights[i - 1], (activations[i - 1]));
+            MathFunction activationFn = i == layerCount - 1 ? outputLayerActivationFn : hiddenLayerActivationFn;
+
+            Matrix net = Matrix.multiply(weights[i - 1], activations[i - 1]);
             activations[i] = Matrix.applyFunction(net, activationFn);
             nets[i] = net;
         }
-
         return calcErrors(desiredOutputVect);
     }
 
@@ -141,7 +146,7 @@ public class Network {
         // output layer
         grads[layerCount - 1] = new Matrix(nodeInLayerCount[layerCount - 1], 1);
         for (int i = 0; i < nodeInLayerCount[layerCount - 1]; i++) {
-            grads[layerCount - 1].data[i][0] = errorVect[i] * diffActivationFn.run(nets[layerCount - 1]
+            grads[layerCount - 1].data[i][0] = errorVect[i] * diffOutputLayerActivationFn.run(nets[layerCount - 1]
                     .data[i][0]);
         }
 
@@ -153,7 +158,7 @@ public class Network {
                 for (int k = 0; k < nodeInLayerCount[l + 1]; k++) {
                     sumGradsWeight += grads[l + 1].data[k][0] * weights[l].data[k][j];
                 }
-                grads[l].data[j][0] = diffActivationFn.run(nets[l].data[j][0]) * sumGradsWeight;
+                grads[l].data[j][0] = diffHiddenLayerActivationFn.run(nets[l].data[j][0]) * sumGradsWeight;
             }
         }
     }

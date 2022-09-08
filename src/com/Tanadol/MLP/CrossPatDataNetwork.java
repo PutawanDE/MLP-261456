@@ -1,11 +1,9 @@
 package com.Tanadol.MLP;
 
-import static com.Tanadol.MLP.ReadWriteTrainingData.saveResult;
-
 public class CrossPatDataNetwork extends Network {
-    public CrossPatDataNetwork(int[] nodeInLayerCount, MathFunction activationFn, MathFunction diffActivationFn,
-                               double minWeight, double maxWeight) {
-        super(nodeInLayerCount, activationFn, diffActivationFn, minWeight, maxWeight);
+    public CrossPatDataNetwork(int[] nodeInLayerCount, MathFunction[] hiddenLayerActivation,
+                               MathFunction[] outputLayerActivation, double minWeight, double maxWeight) {
+        super(nodeInLayerCount, hiddenLayerActivation, outputLayerActivation, minWeight, maxWeight);
     }
 
     public void trainCrossPatData(double[][] dataset, double momentumRate, double learningRate, int maxEpoch, double epsilon,
@@ -48,6 +46,5 @@ public class CrossPatDataNetwork extends Network {
         evalStringSb.append(",actually positive (1),").append("actually negative (0)\n");
         evalStringSb.append("predicted positive (1)").append(tp).append(',').append(fp).append('\n');
         evalStringSb.append("predicted negative (0)").append(fn).append(',').append(tn).append('\n');
-        System.out.println(evalStringSb);
     }
 }
