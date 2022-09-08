@@ -6,9 +6,14 @@ interface MathFunction {
     double run(double x);
 }
 
+enum NETWORK_TYPE {
+    REGRESSION, BIN_CLASSIFIER
+}
+
 public class Network {
     protected final int inputLength;
     protected final int desiredOutputLength;
+    private final NETWORK_TYPE type;
 
     protected int layerCount;
     private int[] nodeInLayerCount;
@@ -18,7 +23,7 @@ public class Network {
     private Matrix[] grads;
     private Matrix[] nets;
     private Matrix[] lastDeltaWeights;
-    private double[] errorVect;
+    private double[] diffLossVect;
 
     private final double minWeight;
     private final double maxWeight;
@@ -30,10 +35,11 @@ public class Network {
 
     private static final Random random = new Random();
 
-    public Network(int[] nodeInLayerCount, MathFunction[] hiddenLayerActivation, MathFunction[] outputLayerActivation,
-                   double minWeight, double maxWeight) {
+    public Network(NETWORK_TYPE type, int[] nodeInLayerCount, MathFunction[] hiddenLayerActivation,
+                   MathFunction[] outputLayerActivation, double minWeight, double maxWeight) {
         this.layerCount = nodeInLayerCount.length;
         this.nodeInLayerCount = nodeInLayerCount;
+        this.type = type;
 
         this.hiddenLayerActivationFn = hiddenLayerActivation[0];
         this.diffHiddenLayerActivationFn = hiddenLayerActivation[1];
@@ -53,6 +59,7 @@ public class Network {
 
         inputLength = nodeInLayerCount[0];
         desiredOutputLength = nodeInLayerCount[nodeInLayerCount.length - 1];
+        diffLossVect = new double[desiredOutputLength];
     }
 
     private void initWeight() {
@@ -69,29 +76,29 @@ public class Network {
 
     protected void trainData(double[][] inputs, double[][] desiredOutputs,
                              double momentumRate, double learningRate, int maxEpoch, double epsilon,
-                             StringBuilder mseResult) {
+                             StringBuilder epochResult) {
         int e = 0;
-        double sse = 0;
-        double mse = Integer.MAX_VALUE;
-
+        double loss;
+        double epochLoss = Integer.MAX_VALUE;
         int n = inputs.length;
 
-        while (e < maxEpoch && mse > epsilon) {
+        while (e < maxEpoch && epochLoss > epsilon) {
             StringBuilder sb = new StringBuilder();
+            double accLoss = 0;
 
             for (int i = 0; i < n; i++) {
-                sse += feedForward(inputs[i], desiredOutputs[i]);
+                loss = feedForward(inputs[i], desiredOutputs[i]);
+                accLoss += Math.abs(loss);
                 backProp(momentumRate, learningRate);
             }
 
             e++;
-            mse = sse / n;
-            sse = 0;
+            epochLoss = accLoss / n;
 
-            sb.append("-------------Epoch: ").append(e).append(" MSE: ").append(mse).append("-------------");
+            sb.append("-------------Epoch: ").append(e).append(" Epoch Loss: ").append(epochLoss).append("-------------");
             System.out.println(sb);
 
-            mseResult.append(e).append(',').append(mse).append('\n');
+            epochResult.append(e).append(',').append(epochLoss).append('\n');
         }
     }
 
@@ -100,6 +107,7 @@ public class Network {
         for (int i = 0; i < inputVect.length; i++) {
             inputMat[i][0] = inputVect[i];
         }
+
         activations[0] = new Matrix(inputMat);
         for (int i = 1; i < layerCount; i++) {
             MathFunction activationFn = i == layerCount - 1 ? outputLayerActivationFn : hiddenLayerActivationFn;
@@ -108,20 +116,38 @@ public class Network {
             activations[i] = Matrix.applyFunction(net, activationFn);
             nets[i] = net;
         }
-        return calcErrors(desiredOutputVect);
+
+        return calcLoss(desiredOutputVect);
     }
 
-    // calculate SSE and output layer error
-    private double calcErrors(double[] desiredOutputVect) {
-        double sse = 0;
-        errorVect = new double[desiredOutputVect.length];
+    // calculate Loss
+    private double calcLoss(double[] desiredOutputVect) {
+        double loss = 0;
+        if (type == NETWORK_TYPE.REGRESSION) {
+            // use mse
+            double sse = 0;
 
-        for (int i = 0; i < desiredOutputVect.length; i++) {
-            double error = desiredOutputVect[i] - activations[layerCount - 1].data[i][0];
-            sse = sse + (error * error);
-            this.errorVect[i] = error;
+            for (int i = 0; i < desiredOutputLength; i++) {
+                double error = desiredOutputVect[i] - activations[layerCount - 1].data[i][0];
+                sse = sse + (error * error);
+                this.diffLossVect[i] = error;
+            }
+            loss = 0.5 * (sse / desiredOutputLength);
+
+        } else if (type == NETWORK_TYPE.BIN_CLASSIFIER) {
+            // use binary cross-entropy
+            double y = desiredOutputVect[0];
+            double p = activations[layerCount - 1].data[0][0];
+
+            if (y == 0.0) {
+                loss = -Math.log(1.0 - p);
+                this.diffLossVect[0] = 1.0 / (1.0 - p);
+            } else if (y == 1.0) {
+                loss = -Math.log(p);
+                this.diffLossVect[0] = -1.0 / p;
+            }
         }
-        return sse;
+        return loss;
     }
 
     private void backProp(double momentumRate, double learningRate) {
@@ -146,7 +172,7 @@ public class Network {
         // output layer
         grads[layerCount - 1] = new Matrix(nodeInLayerCount[layerCount - 1], 1);
         for (int i = 0; i < nodeInLayerCount[layerCount - 1]; i++) {
-            grads[layerCount - 1].data[i][0] = errorVect[i] * diffOutputLayerActivationFn.run(nets[layerCount - 1]
+            grads[layerCount - 1].data[i][0] = diffLossVect[i] * diffOutputLayerActivationFn.run(nets[layerCount - 1]
                     .data[i][0]);
         }
 

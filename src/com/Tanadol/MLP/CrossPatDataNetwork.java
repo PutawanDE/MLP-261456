@@ -1,9 +1,16 @@
 package com.Tanadol.MLP;
 
 public class CrossPatDataNetwork extends Network {
+    private static final MathFunction sigmoidFn = (x) -> 1.0 / (1.0 + Math.exp(x));
+    private static final MathFunction diffSigmoidFn = (x) -> {
+        double s = sigmoidFn.run(x);
+        return s * (1.0 - s);
+    };
+
     public CrossPatDataNetwork(int[] nodeInLayerCount, MathFunction[] hiddenLayerActivation,
-                               MathFunction[] outputLayerActivation, double minWeight, double maxWeight) {
-        super(nodeInLayerCount, hiddenLayerActivation, outputLayerActivation, minWeight, maxWeight);
+                               double minWeight, double maxWeight) {
+        super(NETWORK_TYPE.BIN_CLASSIFIER, nodeInLayerCount, hiddenLayerActivation,
+                new MathFunction[]{sigmoidFn, diffSigmoidFn}, minWeight, maxWeight);
     }
 
     public void trainCrossPatData(double[][] dataset, double momentumRate, double learningRate, int maxEpoch, double epsilon,
@@ -26,10 +33,10 @@ public class CrossPatDataNetwork extends Network {
             feedForward(inputData[i], desiredOutputs[i]);
 
             double predicted1 = activations[layerCount - 1].data[0][0];
-            double predicted2 = activations[layerCount - 1].data[1][0];
+//            double predicted2 = activations[layerCount - 1].data[1][0];
 
             // 1 for positive, 0 for negative, positive->first output is 1
-            int predictedPositiveOrNegative = predicted1 > predicted2 ? 1 : 0;
+            int predictedPositiveOrNegative = predicted1 >= 0.5 ? 1 : 0;
             int actualPositiveOrNegative = (int) desiredOutputs[i][0];
 
             if (actualPositiveOrNegative == 1 && predictedPositiveOrNegative == 1) {
