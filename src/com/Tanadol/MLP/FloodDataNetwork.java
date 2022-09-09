@@ -17,7 +17,7 @@ public class FloodDataNetwork extends Network {
         double[][] desiredOutputs = copy2Darray(dataset, inputLength, desiredOutputLength);
 
         trainData(inputData, desiredOutputs, momentumRate, learningRate, maxEpoch, epsilon, resultStrBuilder);
-//        saveResult(resultStrBuilder, name);
+        saveResult(resultStrBuilder, name);
     }
 
     public void evaluateInput(double[][] dataset, StringBuilder evalStringSb) {

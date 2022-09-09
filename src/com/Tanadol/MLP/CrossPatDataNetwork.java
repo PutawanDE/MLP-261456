@@ -1,5 +1,7 @@
 package com.Tanadol.MLP;
 
+import static com.Tanadol.MLP.ReadWriteTrainingData.saveResult;
+
 public class CrossPatDataNetwork extends Network {
     private static final MathFunction sigmoidFn = (x) -> 1.0 / (1.0 + Math.exp(x));
     private static final MathFunction diffSigmoidFn = (x) -> {
@@ -21,7 +23,7 @@ public class CrossPatDataNetwork extends Network {
         double[][] desiredOutputs = copy2Darray(dataset, inputLength, desiredOutputLength);
 
         trainData(inputData, desiredOutputs, momentumRate, learningRate, maxEpoch, epsilon, resultStrBuilder);
-//        saveResult(resultStrBuilder, name);
+        saveResult(resultStrBuilder, name);
     }
 
     public int[] evaluateInput(double[][] dataset, StringBuilder evalStringSb) {

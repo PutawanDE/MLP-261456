@@ -28,7 +28,7 @@ public class Main {
 
 
     public static void main(String[] args) {
-//        tenPercentCrossValidateFloodData();
+        tenPercentCrossValidateFloodData();
         tenPercentCrossValidateCrossPat();
     }
 
@@ -58,7 +58,7 @@ public class Main {
                 evalResultStr.append('\n');
             }
             System.out.println(evalResultStr);
-//            saveResult(evalResultStr, "Flood_RMSE/FloodTrainingResult_D/Result_D");
+            saveResult(evalResultStr, "Flood_RMSE/FloodTrainingResult_D/Result_D");
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -82,7 +82,7 @@ public class Main {
                 double[][] trainingData = readTrainingDataset(foldSize, dataCols, i, k, path, delimiters);
                 network.trainCrossPatData(trainingData, 0.1, 0.002, 5000,
                         0.01, "CrossPatResult/CrossPatTrainingResult_A/ResultItr" + i);
-//
+
                 evalResultStr.append("Training Data Confusion Matrix: ").append(i).append('\n');
                 network.evaluateInput(trainingData, evalResultStr);
                 evalResultStr.append("Test Data Confusion Matrix: ").append(i).append('\n');
@@ -98,13 +98,9 @@ public class Main {
             System.out.println(evalResultStr);
 
             evalResultStr = new StringBuilder();
-            evalResultStr.append("All Tests Confusion Matrix\n");
-//            evalResultStr.append(",actually positive (1),").append("actually negative (0)\n");
-//            evalResultStr.append("predicted positive (1)").append(accConfusionMat[0]).append(',').append(accConfusionMat[1]).append('\n');
-//            evalResultStr.append("predicted negative (0)").append(accConfusionMat[2]).append(',').append(accConfusionMat[3]).append('\n');
             evalResultStr.append(test_tn).append(',').append(test_fp).append("],[").append(test_fn).append(',').append(test_tp);
             System.out.println(evalResultStr);
-//            saveResult(evalResultStr, "CrossPatResult/Result_A");
+            saveResult(evalResultStr, "CrossPatResult/Result_A");
         } catch (Exception e) {
             e.printStackTrace();
         }
