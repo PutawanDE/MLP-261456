@@ -4,8 +4,9 @@ import static com.Tanadol.MLP.ReadWriteTrainingData.saveResult;
 
 public class FloodDataNetwork extends Network {
     public FloodDataNetwork(int[] nodeInLayerCount, MathFunction[] hiddenLayerActivation,
-                            MathFunction[] outputLayerActivation, double minWeight, double maxWeight) {
-        super(NETWORK_TYPE.REGRESSION, nodeInLayerCount, hiddenLayerActivation, outputLayerActivation, minWeight, maxWeight);
+                            MathFunction[] outputLayerActivation, double minWeight, double maxWeight, Matrix[] biases) {
+        super(NETWORK_TYPE.REGRESSION, nodeInLayerCount, hiddenLayerActivation, outputLayerActivation, minWeight,
+                maxWeight, biases);
     }
 
     public void trainFloodData(double[][] dataset, double momentumRate, double learningRate, int maxEpoch, double epsilon,

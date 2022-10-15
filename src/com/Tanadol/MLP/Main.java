@@ -35,13 +35,16 @@ public class Main {
     public static void tenPercentCrossValidateFloodData() {
         int[] nodeInLayerCount = new int[]{8, 2, 1};
         MathFunction[] activationFn = new MathFunction[]{leakyReluFn, diffLeakyReluFn};
+        Matrix[] biases = new Matrix[2];
+        biases[0] = new Matrix(2, 1);
+        biases[1] = new Matrix(1, 1);
         FloodDataNetwork network = new FloodDataNetwork(nodeInLayerCount, activationFn, activationFn,
-                -1.0, 1.0);
+                -1.0, 1.0, biases);
 
         int k = 10;
         int foldSize = 31;
         int dataCols = 9;
-        String path = "D:/PUTAWAN/ComputerProjects/CI/Flood_dataset";
+        String path = "D:/PUTAWAN/ComputerProjects/CI/HW1-mlp/Flood_dataset";
         String delimiters = "\\s*[\t\n]\\s*";
 
         try {
@@ -66,13 +69,19 @@ public class Main {
 
     public static void tenPercentCrossValidateCrossPat() {
         int[] nodeInLayerCount = new int[]{2, 2, 2, 1};
+        Matrix[] biases = new Matrix[3];
+        biases[0] = new Matrix(2, 1);
+        biases[1] = new Matrix(2, 1);
+        biases[2] = new Matrix(1, 1);
+
         MathFunction[] hiddenLayerActivation = new MathFunction[]{tanhFn, diffTanhFn};
-        CrossPatDataNetwork network = new CrossPatDataNetwork(nodeInLayerCount, hiddenLayerActivation, -1.0, 1.0);
+        CrossPatDataNetwork network = new CrossPatDataNetwork(nodeInLayerCount, hiddenLayerActivation,
+                -1.0, 1.0, biases);
 
         int k = 10;
         int foldSize = 20;
         int dataCols = 4;
-        String path = "D:/PUTAWAN/ComputerProjects/CI/CrossPat_dataset";
+        String path = "D:/PUTAWAN/ComputerProjects/CI/HW1-mlp/CrossPat_dataset";
         String delimiters = "\\s*[\\s\\n]\\s*";
 
         try {
@@ -80,7 +89,7 @@ public class Main {
             int test_tp = 0, test_tn = 0, test_fp = 0, test_fn = 0;
             for (int i = 1; i <= k; i++) {
                 double[][] trainingData = readTrainingDataset(foldSize, dataCols, i, k, path, delimiters);
-                network.trainCrossPatData(trainingData, 0.1, 0.002, 5000,
+                network.trainCrossPatData(trainingData, 0.01, 0.002, 5000,
                         0.01, "CrossPatResult/CrossPatTrainingResult_A/ResultItr" + i);
 
                 evalResultStr.append("Training Data Confusion Matrix: ").append(i).append('\n');

@@ -20,8 +20,9 @@ public class Network {
 
     protected Matrix[] activations;
     private Matrix[] weights;
+    private Matrix[] biases;
     private Matrix[] grads;
-    private Matrix[] nets;
+    private Matrix[] nodeOutputs;
     private Matrix[] lastDeltaWeights;
     private double[] diffLossVect;
 
@@ -36,7 +37,7 @@ public class Network {
     private static final Random random = new Random();
 
     public Network(NETWORK_TYPE type, int[] nodeInLayerCount, MathFunction[] hiddenLayerActivation,
-                   MathFunction[] outputLayerActivation, double minWeight, double maxWeight) {
+                   MathFunction[] outputLayerActivation, double minWeight, double maxWeight, Matrix[] biases) {
         this.layerCount = nodeInLayerCount.length;
         this.nodeInLayerCount = nodeInLayerCount;
         this.type = type;
@@ -50,10 +51,11 @@ public class Network {
         this.maxWeight = maxWeight;
 
         weights = new Matrix[layerCount - 1];
+        this.biases = biases.clone();
         lastDeltaWeights = new Matrix[layerCount - 1];
         activations = new Matrix[layerCount];
         grads = new Matrix[layerCount];
-        nets = new Matrix[layerCount];
+        nodeOutputs = new Matrix[layerCount];
 
         initWeight();
 
@@ -113,8 +115,9 @@ public class Network {
             MathFunction activationFn = i == layerCount - 1 ? outputLayerActivationFn : hiddenLayerActivationFn;
 
             Matrix net = Matrix.multiply(weights[i - 1], activations[i - 1]);
-            activations[i] = Matrix.applyFunction(net, activationFn);
-            nets[i] = net;
+            Matrix output = net.add(biases[i - 1]);
+            activations[i] = Matrix.applyFunction(output, activationFn);
+            nodeOutputs[i] = output;
         }
 
         return calcLoss(desiredOutputVect);
@@ -153,7 +156,7 @@ public class Network {
     private void backProp(double momentumRate, double learningRate) {
         calcGrads();
 
-        // update weights
+        // update weights and biases
         for (int l = 0; l < layerCount - 1; l++) {
             for (int j = 0; j < nodeInLayerCount[l + 1]; j++) {
                 for (int i = 0; i < nodeInLayerCount[l]; i++) {
@@ -164,6 +167,8 @@ public class Network {
                     weights[l].data[j][i] = weights[l].data[j][i] + deltaWeight;
                     lastDeltaWeights[l].data[j][i] = deltaWeight;
                 }
+
+                biases[l].data[j][0] = biases[l].data[j][0] + learningRate * grads[l + 1].data[j][0];
             }
         }
     }
@@ -172,7 +177,7 @@ public class Network {
         // output layer
         grads[layerCount - 1] = new Matrix(nodeInLayerCount[layerCount - 1], 1);
         for (int i = 0; i < nodeInLayerCount[layerCount - 1]; i++) {
-            grads[layerCount - 1].data[i][0] = diffLossVect[i] * diffOutputLayerActivationFn.run(nets[layerCount - 1]
+            grads[layerCount - 1].data[i][0] = diffLossVect[i] * diffOutputLayerActivationFn.run(nodeOutputs[layerCount - 1]
                     .data[i][0]);
         }
 
@@ -184,7 +189,7 @@ public class Network {
                 for (int k = 0; k < nodeInLayerCount[l + 1]; k++) {
                     sumGradsWeight += grads[l + 1].data[k][0] * weights[l].data[k][j];
                 }
-                grads[l].data[j][0] = diffHiddenLayerActivationFn.run(nets[l].data[j][0]) * sumGradsWeight;
+                grads[l].data[j][0] = diffHiddenLayerActivationFn.run(nodeOutputs[l].data[j][0]) * sumGradsWeight;
             }
         }
     }

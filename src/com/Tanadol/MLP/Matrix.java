@@ -37,7 +37,7 @@ public class Matrix {
         double[][] result = new double[rows][cols];
         for (int i = 0; i < rows; i++) {
             for (int j = 0; j < cols; j++) {
-                result[j][i] = data[j][i] + matrix.data[j][i];
+                result[i][j] = data[i][j] + matrix.data[i][j];
             }
         }
 

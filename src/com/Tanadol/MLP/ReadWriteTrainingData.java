@@ -5,7 +5,7 @@ import java.util.Scanner;
 
 public class ReadWriteTrainingData {
     public static void saveResult(StringBuilder stringBuilder, String name) {
-        File file = new File("D:/PUTAWAN/ComputerProjects/CI/" + name + ".csv");
+        File file = new File("D:/PUTAWAN/ComputerProjects/CI/HW1-mlp/" + name + ".csv");
         try (BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(file))) {
             bufferedWriter.append(stringBuilder);
         } catch (IOException exception) {

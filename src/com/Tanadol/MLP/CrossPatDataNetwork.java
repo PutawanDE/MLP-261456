@@ -10,9 +10,9 @@ public class CrossPatDataNetwork extends Network {
     };
 
     public CrossPatDataNetwork(int[] nodeInLayerCount, MathFunction[] hiddenLayerActivation,
-                               double minWeight, double maxWeight) {
+                               double minWeight, double maxWeight, Matrix[] biases) {
         super(NETWORK_TYPE.BIN_CLASSIFIER, nodeInLayerCount, hiddenLayerActivation,
-                new MathFunction[]{sigmoidFn, diffSigmoidFn}, minWeight, maxWeight);
+                new MathFunction[]{sigmoidFn, diffSigmoidFn}, minWeight, maxWeight, biases);
     }
 
     public void trainCrossPatData(double[][] dataset, double momentumRate, double learningRate, int maxEpoch, double epsilon,
