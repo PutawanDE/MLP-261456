@@ -127,7 +127,7 @@ public class Network {
     private double calcLoss(double[] desiredOutputVect) {
         double loss = 0;
         if (type == NETWORK_TYPE.REGRESSION) {
-            // use sse
+            // use mse
             double sse = 0;
 
             for (int i = 0; i < desiredOutputLength; i++) {
@@ -135,7 +135,7 @@ public class Network {
                 sse = sse + (error * error);
                 this.diffLossVect[i] = error;
             }
-            loss = 0.5 * sse;
+            loss = 0.5 * sse / desiredOutputLength;
 
         } else if (type == NETWORK_TYPE.BIN_CLASSIFIER) {
             // use binary cross-entropy
